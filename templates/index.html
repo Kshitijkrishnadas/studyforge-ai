@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StudyForge AI — Agentic Revision & Quiz Engine</title>
+  <style>
+    * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
+    body {
+      background: #0f172a;
+      color: #f8fafc;
+      margin: 0;
+      padding: 2rem 1rem;
+      display: flex;
+      justify-content: center;
+    }
+    .container { max-width: 760px; width: 100%; }
+    h1 { margin: 0 0 0.25rem; font-size: 1.8rem; color: #38bdf8; }
+    p.subtitle { color: #94a3b8; margin-top: 0; margin-bottom: 1.5rem; }
+    textarea {
+      width: 100%;
+      min-height: 140px;
+      background: #1e293b;
+      color: #f8fafc;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 1rem;
+      font-size: 1rem;
+      resize: vertical;
+    }
+    button.primary {
+      margin-top: 1rem;
+      background: #0284c7;
+      color: white;
+      border: none;
+      padding: 0.8rem 1.5rem;
+      font-size: 1rem;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 1.25rem;
+      margin-top: 1.5rem;
+    }
+    .badge {
+      display: inline-block;
+      background: #0369a1;
+      color: #e0f2fe;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+      margin-bottom: 0.5rem;
+    }
+    pre.summary-box {
+      white-space: pre-wrap;
+      font-family: inherit;
+      line-height: 1.6;
+      color: #e2e8f0;
+      margin: 0;
+    }
+    .question-block { margin-bottom: 1.25rem; padding-bottom: 1rem; border-bottom: 1px solid #334155; }
+    .question-block:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+    .option-btn {
+      display: block;
+      width: 100%;
+      text-align: left;
+      background: #0f172a;
+      color: #e2e8f0;
+      border: 1px solid #334155;
+      padding: 0.65rem 0.9rem;
+      margin-top: 0.45rem;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .option-btn:hover { border-color: #38bdf8; }
+    .correct { background: #14532d !important; border-color: #22c55e !important; color: #dcfce7; }
+    .wrong { background: #7f1d1d !important; border-color: #ef4444 !important; color: #fee2e2; }
+    #error { color: #f87171; margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>StudyForge AI</h1>
+    <p class="subtitle">Multi-Agent Neural Pipeline: Concept Extraction &amp; Automated Assessment</p>
+
+    <textarea id="notesInput" placeholder="Paste your lecture notes or type any topic (e.g., 'Backpropagation in Neural Networks' or 'OSI Model Layers')..."></textarea>
+    <button id="runBtn" class="primary" onclick="runAgents()">Run AI Agents</button>
+    <div id="error"></div>
+
+    <div id="results" style="display: none;">
+      <div class="card">
+        <span class="badge">AGENT 1: CONCEPT EXTRACTOR</span>
+        <pre id="summaryOutput" class="summary-box"></pre>
+      </div>
+
+      <div class="card">
+        <span class="badge">AGENT 2: QUIZ EVALUATOR</span>
+        <div id="quizOutput"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    async function runAgents() {
+      const notes = document.getElementById("notesInput").value;
+      const btn = document.getElementById("runBtn");
+      const errDiv = document.getElementById("error");
+      const resultsDiv = document.getElementById("results");
+
+      errDiv.textContent = "";
+      if (!notes.trim()) {
+        errDiv.textContent = "Please enter a topic or some notes first.";
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = "Agents Processing...";
+      resultsDiv.style.display = "none";
+
+      try {
+        const res = await fetch("/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ notes })
+        });
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.error || "Something went wrong.");
+
+        document.getElementById("summaryOutput").textContent = data.summary;
+        renderQuiz(data.quiz);
+        resultsDiv.style.display = "block";
+      } catch (e) {
+        errDiv.textContent = "Error: " + e.message;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Run AI Agents";
+      }
+    }
+
+    function renderQuiz(quiz) {
+      const container = document.getElementById("quizOutput");
+      container.innerHTML = "";
+
+      quiz.forEach((q, qIdx) => {
+        const block = document.createElement("div");
+        block.className = "question-block";
+        block.innerHTML = `<strong>Q${qIdx + 1}: ${q.question}</strong>`;
+
+        q.options.forEach((opt, oIdx) => {
+          const btn = document.createElement("button");
+          btn.className = "option-btn";
+          btn.textContent = opt;
+          btn.onclick = () => {
+            const siblings = block.querySelectorAll(".option-btn");
+            siblings.forEach(b => b.disabled = true);
+            if (oIdx === q.answer_index) {
+              btn.classList.add("correct");
+            } else {
+              btn.classList.add("wrong");
+              siblings[q.answer_index].classList.add("correct");
+            }
+          };
+          block.appendChild(btn);
+        });
+
+        container.appendChild(block);
+      });
+    }
+  </script>
+</body>
+</html>
