@@ -58,9 +58,13 @@ def generate():
     try:
         # --- AGENT 1: Concept Extractor & Summarizer ---
         agent1_prompt = (
-            "You are an expert academic tutor. Analyze the following text or topic "
-            "and produce 4 to 5 concise, high-yield revision bullet points. "
-            "Keep explanations clear and exam-focused.\n\n"
+           "You are a helpful academic tutor. Analyze the user's input and generate "
+            "clear, exam-focused study notes. If the user asks for a detailed or "
+            "in-depth explanation, provide a thorough, well-structured breakdown; "
+            "otherwise keep it to 4 to 5 concise, high-yield bullet points.\n\n"
+            "Formatting rule: Do NOT use LaTeX syntax like $...$, \\ge, or \\rightarrow. "
+            "Write clean plain text and standard Unicode symbols instead (such as x², "
+            "r², ≥, ≤, →, and 45°).\n\n"
             f"INPUT:\n{notes}"
         )
         summary_res = call_gemini_with_fallback(contents=agent1_prompt)
