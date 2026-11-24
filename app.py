@@ -1,14 +1,45 @@
 import os
 import json
+import time
 from flask import Flask, render_template, request, jsonify
 from google import genai
 from google.genai import types
+from google.genai.errors import APIError
 
 app = Flask(__name__)
 
 # Uses the GEMINI_API_KEY environment variable automatically
 client = genai.Client()
-MODEL_ID = "gemini-3.5-flash-lite"
+
+# Primary model first, with automatic fallback models if one is overloaded (503)
+MODELS_TO_TRY = [
+    "gemini-3.5-flash-lite",
+    "gemini-3.1-flash-lite",
+    "gemini-2.5-flash-lite",
+]
+
+
+def call_gemini_with_fallback(contents, config=None):
+    last_error = None
+    for model_id in MODELS_TO_TRY:
+        for attempt in range(2):  # up to 2 quick tries per model
+            try:
+                return client.models.generate_content(
+                    model=model_id,
+                    contents=contents,
+                    config=config,
+                )
+            except APIError as e:
+                last_error = e
+                # Retry/fallback on temporary server overload (503) or rate-limit hiccup (429)
+                if e.code in (503, 429):
+                    time.sleep(1.5 * (attempt + 1))
+                    continue
+                raise
+            except Exception as e:
+                last_error = e
+                raise
+    raise last_error
 
 
 @app.route("/")
@@ -32,10 +63,7 @@ def generate():
             "Keep explanations clear and exam-focused.\n\n"
             f"INPUT:\n{notes}"
         )
-        summary_res = client.models.generate_content(
-            model=MODEL_ID,
-            contents=agent1_prompt,
-        )
+        summary_res = call_gemini_with_fallback(contents=agent1_prompt)
         study_notes = summary_res.text
 
         # --- AGENT 2: Autonomous Quiz Builder ---
@@ -63,8 +91,7 @@ def generate():
             },
         }
 
-        quiz_res = client.models.generate_content(
-            model=MODEL_ID,
+        quiz_res = call_gemini_with_fallback(
             contents=agent2_prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
