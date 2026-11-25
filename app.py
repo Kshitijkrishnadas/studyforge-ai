@@ -11,18 +11,18 @@ app = Flask(__name__)
 # Uses the GEMINI_API_KEY environment variable automatically
 client = genai.Client()
 
-# Primary model first, with automatic fallback models if one is overloaded (503)
+# Current models first; avoids retired 2.5 models that return 404
 MODELS_TO_TRY = [
     "gemini-3.5-flash-lite",
     "gemini-3.1-flash-lite",
-    "gemini-2.5-flash-lite",
+    "gemini-3.6-flash",
 ]
 
 
 def call_gemini_with_fallback(contents, config=None):
     last_error = None
     for model_id in MODELS_TO_TRY:
-        for attempt in range(2):  # up to 2 quick tries per model
+        for attempt in range(2):
             try:
                 return client.models.generate_content(
                     model=model_id,
@@ -31,7 +31,7 @@ def call_gemini_with_fallback(contents, config=None):
                 )
             except APIError as e:
                 last_error = e
-                # Retry/fallback on temporary server overload (503) or rate-limit hiccup (429)
+                # Only retry/fallback on temporary overload (503) or rate-limit (429)
                 if e.code in (503, 429):
                     time.sleep(1.5 * (attempt + 1))
                     continue
@@ -58,7 +58,7 @@ def generate():
     try:
         # --- AGENT 1: Concept Extractor & Summarizer ---
         agent1_prompt = (
-           "You are a helpful academic tutor. Analyze the user's input and generate "
+            "You are a helpful academic tutor. Analyze the user's input and generate "
             "clear, exam-focused study notes. If the user asks for a detailed or "
             "in-depth explanation, provide a thorough, well-structured breakdown; "
             "otherwise keep it to 4 to 5 concise, high-yield bullet points.\n\n"
