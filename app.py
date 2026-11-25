@@ -11,11 +11,10 @@ app = Flask(__name__)
 # Uses the GEMINI_API_KEY environment variable automatically
 client = genai.Client()
 
-# Current models first; avoids retired 2.5 models that return 404
+# Keep list short and fast so cold starts don't time out
 MODELS_TO_TRY = [
     "gemini-3.5-flash-lite",
     "gemini-3.1-flash-lite",
-    "gemini-3.6-flash",
 ]
 
 
@@ -31,9 +30,8 @@ def call_gemini_with_fallback(contents, config=None):
                 )
             except APIError as e:
                 last_error = e
-                # Only retry/fallback on temporary overload (503) or rate-limit (429)
                 if e.code in (503, 429):
-                    time.sleep(1.5 * (attempt + 1))
+                    time.sleep(1.0 * (attempt + 1))
                     continue
                 raise
             except Exception as e:
@@ -49,8 +47,8 @@ def index():
 
 @app.route("/generate", methods=["POST"])
 def generate():
-    data = request.get_json()
-    notes = data.get("notes", "").strip()
+    data = request.get_json(silent=True) or {}
+    notes = (data.get("notes") or "").strip()
 
     if not notes:
         return jsonify({"error": "Please enter some notes or a topic first."}), 400
@@ -68,7 +66,7 @@ def generate():
             f"INPUT:\n{notes}"
         )
         summary_res = call_gemini_with_fallback(contents=agent1_prompt)
-        study_notes = summary_res.text
+        study_notes = summary_res.text or "No summary generated."
 
         # --- AGENT 2: Autonomous Quiz Builder ---
         agent2_prompt = (
@@ -106,11 +104,11 @@ def generate():
 
         return jsonify({
             "summary": study_notes,
-            "quiz": quiz_data
+            "quiz": quiz_data,
         })
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": f"Backend error: {str(e)}"}), 500
 
 
 if __name__ == "__main__":
