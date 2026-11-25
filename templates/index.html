@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>StudyForge AI — Agentic Revision & Quiz Engine</title>
+  <title>StudyForge AI — Agentic Revision &amp; Quiz Engine</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <style>
     * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
     body {
@@ -39,6 +40,7 @@
       border-radius: 8px;
       cursor: pointer;
     }
+    button.primary:hover { background: #0369a1; }
     button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
     .card {
       background: #1e293b;
@@ -55,17 +57,53 @@
       font-weight: 700;
       padding: 0.2rem 0.6rem;
       border-radius: 999px;
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.75rem;
     }
-    pre.summary-box {
-      white-space: pre-wrap;
-      font-family: inherit;
-      line-height: 1.6;
+    .summary-box {
+      line-height: 1.65;
       color: #e2e8f0;
-      margin: 0;
     }
-    .question-block { margin-bottom: 1.25rem; padding-bottom: 1rem; border-bottom: 1px solid #334155; }
-    .question-block:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+    .summary-box h1,
+    .summary-box h2,
+    .summary-box h3,
+    .summary-box h4 {
+      color: #7dd3fc;
+      margin: 1rem 0 0.4rem;
+    }
+    .summary-box h1:first-child,
+    .summary-box h2:first-child,
+    .summary-box h3:first-child {
+      margin-top: 0;
+    }
+    .summary-box p {
+      margin: 0.45rem 0 0.85rem;
+    }
+    .summary-box ul,
+    .summary-box ol {
+      padding-left: 1.35rem;
+      margin: 0.4rem 0 0.9rem;
+    }
+    .summary-box li {
+      margin-bottom: 0.35rem;
+    }
+    .summary-box code {
+      background: #0f172a;
+      color: #bae6fd;
+      padding: 0.15rem 0.4rem;
+      border-radius: 5px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.9em;
+    }
+    .question-block {
+      margin-bottom: 1.25rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid #334155;
+    }
+    .question-block:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+      padding-bottom: 0;
+    }
     .option-btn {
       display: block;
       width: 100%;
@@ -78,7 +116,7 @@
       border-radius: 8px;
       cursor: pointer;
     }
-    .option-btn:hover { border-color: #38bdf8; }
+    .option-btn:hover:not(:disabled) { border-color: #38bdf8; }
     .correct { background: #14532d !important; border-color: #22c55e !important; color: #dcfce7; }
     .wrong { background: #7f1d1d !important; border-color: #ef4444 !important; color: #fee2e2; }
     #error { color: #f87171; margin-top: 1rem; }
@@ -96,7 +134,7 @@
     <div id="results" style="display: none;">
       <div class="card">
         <span class="badge">AGENT 1: CONCEPT EXTRACTOR</span>
-        <pre id="summaryOutput" class="summary-box"></pre>
+        <div id="summaryOutput" class="summary-box"></div>
       </div>
 
       <div class="card">
@@ -133,7 +171,11 @@
 
         if (!res.ok) throw new Error(data.error || "Something went wrong.");
 
-        document.getElementById("summaryOutput").textContent = data.summary;
+        const summaryEl = document.getElementById("summaryOutput");
+        summaryEl.innerHTML = window.marked
+          ? marked.parse(data.summary)
+          : data.summary;
+
         renderQuiz(data.quiz);
         resultsDiv.style.display = "block";
       } catch (e) {
